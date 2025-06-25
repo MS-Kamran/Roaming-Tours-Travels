@@ -4,6 +4,7 @@ import qrcode.constants
 from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import RoundedModuleDrawer, SquareModuleDrawer, CircleModuleDrawer
 from qrcode.image.styles.colormasks import SolidFillColorMask
+from PIL import ImageDraw
 
 def hex_to_rgb(hex_color):
     """Convert hex color to RGB tuple."""

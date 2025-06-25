@@ -12,6 +12,13 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+# Configure Flask for production deployment
+if IS_PRODUCTION:
+    # Set preferred URL scheme for external URLs
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    # Allow Flask to generate external URLs properly on Render
+    app.config['SERVER_NAME'] = None  # Let Render handle this
+
 # Data storage files
 DB_FILE = 'data/db.json'
 QR_STORAGE_FILE = 'data/qr_storage.json'
@@ -248,27 +255,36 @@ def redirect_short(code):
 
 def generate_qr_image(code):
     """Helper function to generate QR code image"""
-    if code not in db:
-        return None
+    try:
+        if code not in db:
+            print(f"QR Code generation: Code '{code}' not found in database")
+            return None
+            
+        # Use the full external URL for the short link
+        short_url = url_for('redirect_short', code=code, _external=True)
+        print(f"QR Code generation: Generated URL - {short_url}")
         
-    # Use the full external URL for the short link
-    short_url = url_for('redirect_short', code=code, _external=True)
-    
-    # Get stored colors or use defaults
-    qr_data = qr_storage.get(code, {})
-    front_color = qr_data.get('front_color', '#000000')
-    back_color = qr_data.get('back_color', '#FFFFFF')
-    
-    # Create styled QR code with dot style, rounded eyes, and custom colors
-    img = create_styled_qr(
-        data=short_url,
-        style='dot',
-        inner_eye_style='rounded',
-        outer_eye_style='rounded',
-        front_color=front_color,
-        back_color=back_color
-    )
-    return img
+        # Get stored colors or use defaults
+        qr_data = qr_storage.get(code, {})
+        front_color = qr_data.get('front_color', '#000000')
+        back_color = qr_data.get('back_color', '#FFFFFF')
+        
+        # Create styled QR code with dot style, rounded eyes, and custom colors
+        img = create_styled_qr(
+            data=short_url,
+            style='dot',
+            inner_eye_style='rounded',
+            outer_eye_style='rounded',
+            front_color=front_color,
+            back_color=back_color
+        )
+        print(f"QR Code generation: Successfully created QR code for '{code}'")
+        return img
+    except Exception as e:
+        print(f"QR Code generation error for code '{code}': {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 @app.route('/qr/<code>')
 def qr_code(code):

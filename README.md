@@ -48,6 +48,25 @@ The application will be available at `http://localhost:8000`
 
 ## Deployment
 
+### Deploying to Render
+
+This application is configured for easy deployment on Render:
+
+1. Create a new Web Service on Render
+2. Connect your GitHub repository
+3. Render will automatically detect the configuration from `render.yaml`
+4. Alternatively, you can use the following settings:
+   - **Environment**: Python
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app`
+   - **Environment Variables**: Set `PRODUCTION=true`
+
+### Important Notes for Production
+
+- The application uses in-memory storage in production mode (on Render)
+- Data will not persist between application restarts on Render's free tier
+- For persistent storage in production, consider implementing a database solution
+
 This app is configured for deployment on Render using Gunicorn:
 
 1. Push your code to GitHub

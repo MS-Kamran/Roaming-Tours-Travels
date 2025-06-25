@@ -17,6 +17,9 @@ DB_FILE = 'data/db.json'
 QR_STORAGE_FILE = 'data/qr_storage.json'
 ANALYTICS_FILE = 'data/analytics.json'
 
+# Environment configuration
+IS_PRODUCTION = os.environ.get('RENDER') is not None or os.environ.get('PRODUCTION') == 'true'
+
 # In-memory store for short links with metadata
 db = {}
 # Store QR code metadata
@@ -32,12 +35,24 @@ analytics_data = {
 # Data persistence functions
 def ensure_data_directory():
     """Ensure the data directory exists"""
-    if not os.path.exists('data'):
+    if not IS_PRODUCTION and not os.path.exists('data'):
         os.makedirs('data')
 
 def load_data():
     """Load data from JSON files"""
     global db, qr_storage, analytics_data
+    
+    if IS_PRODUCTION:
+        print("Running in production mode - using in-memory storage only")
+        db = {}
+        qr_storage = {}
+        analytics_data = {
+            'page_views': 0,
+            'qr_generations': 0,
+            'downloads': 0,
+            'system_stats': []
+        }
+        return
     
     ensure_data_directory()
     
@@ -75,6 +90,10 @@ def load_data():
 
 def save_data():
     """Save data to JSON files"""
+    if IS_PRODUCTION:
+        # Skip file operations in production (ephemeral storage)
+        return
+        
     ensure_data_directory()
     
     # Save URL database
@@ -446,6 +465,11 @@ def log_system_stats():
 
 def create_backup():
     """Create a backup of current data"""
+    if IS_PRODUCTION:
+        # Skip backup operations in production (ephemeral storage)
+        print("Skipping backup in production mode")
+        return
+        
     try:
         import shutil
         from datetime import datetime
@@ -480,8 +504,16 @@ if __name__ == '__main__':
     load_data()
     print(f"Loaded {len(db)} URLs and {len(qr_storage)} QR codes")
     
-    # Create backup before starting
+    # Create backup before starting (skipped in production)
     create_backup()
     
+    # Get port from environment variable (for Render compatibility)
     port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    
+    # In development, run with Flask's built-in server
+    # In production, this will be handled by gunicorn
+    if not IS_PRODUCTION:
+        app.run(host='0.0.0.0', port=port, debug=False)
+    else:
+        # This block won't execute on Render as gunicorn takes over
+        app.run(host='0.0.0.0', port=port, debug=False)

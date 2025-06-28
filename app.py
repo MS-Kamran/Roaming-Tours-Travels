@@ -10,6 +10,11 @@ from io import BytesIO
 from custom_qr_style import create_styled_qr
 from datetime import datetime
 
+# Environment configuration
+IS_PRODUCTION = (os.environ.get('RENDER') is not None or 
+                os.environ.get('PRODUCTION') == 'true' or 
+                os.environ.get('CPANEL_HOSTING') == 'true')
+
 app = Flask(__name__)
 
 # Configure Flask for production deployment
@@ -23,9 +28,6 @@ if IS_PRODUCTION:
 DB_FILE = 'data/db.json'
 QR_STORAGE_FILE = 'data/qr_storage.json'
 ANALYTICS_FILE = 'data/analytics.json'
-
-# Environment configuration
-IS_PRODUCTION = os.environ.get('RENDER') is not None or os.environ.get('PRODUCTION') == 'true'
 
 # In-memory store for short links with metadata
 db = {}
@@ -42,8 +44,13 @@ analytics_data = {
 # Data persistence functions
 def ensure_data_directory():
     """Ensure the data directory exists"""
-    if not IS_PRODUCTION and not os.path.exists('data'):
-        os.makedirs('data')
+    try:
+        if not os.path.exists('data'):
+            os.makedirs('data', mode=0o755)
+        if not os.path.exists('data/backups'):
+            os.makedirs('data/backups', mode=0o755)
+    except Exception as e:
+        print(f"Warning: Could not create data directory: {e}")
 
 def load_data():
     """Load data from JSON files"""
@@ -478,6 +485,56 @@ def log_system_stats():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Health check endpoint for monitoring
+@app.route('/health')
+def health_check():
+    """Health check endpoint for monitoring and load balancers"""
+    try:
+        # Basic health checks
+        status = {
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'version': '1.0.0',
+            'environment': 'production' if IS_PRODUCTION else 'development',
+            'urls_count': len(db),
+            'qr_codes_count': len(qr_storage)
+        }
+        return jsonify(status), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+# Error handlers for production
+@app.errorhandler(404)
+def not_found_error(error):
+    """Handle 404 errors"""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Endpoint not found'}), 404
+    return render_template('index.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors"""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error'}), 500
+    return render_template('index.html'), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle unexpected exceptions"""
+    if IS_PRODUCTION:
+        # Log the error but don't expose details in production
+        print(f"Unexpected error: {str(e)}")
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'An unexpected error occurred'}), 500
+        return render_template('index.html'), 500
+    else:
+        # In development, let Flask handle the error normally
+        raise e
 
 def create_backup():
     """Create a backup of current data"""

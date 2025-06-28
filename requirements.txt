@@ -1,4 +1,9 @@
-Flask
-qrcode[pil]
-Pillow
-gunicorn
+Flask==2.3.3
+qrcode[pil]==7.4.2
+Pillow>=9.0.0
+gunicorn==21.2.0
+Werkzeug==2.3.7
+Jinja2==3.1.2
+click>=8.0.0
+itsdangerous>=2.0.0
+MarkupSafe>=2.0.0
